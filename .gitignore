@@ -1,0 +1,25 @@
+# Byte-code files
+*.pyc
+__pycache__/
+
+
+# Virtual environment
+# The directory name depends on your setup, common names are venv/ or .venv/
+venv/
+.venv/
+
+
+# IDE/editor-specific files and directories (choose what you use)
+.idea/
+.vscode/
+
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+spypi-old/
+*.log
+log/
+logs/
