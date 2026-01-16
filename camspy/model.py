@@ -160,3 +160,4 @@ class Connector:
         if r.status_code != 200:
             self.logger.error(r.content)
         return True
+

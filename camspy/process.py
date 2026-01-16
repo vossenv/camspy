@@ -8,14 +8,14 @@ from os.path import join
 import cv2
 from simple_pid import PID
 
-from camspy.camera import Camera #, PiCamDirect
+from camspy.camera import Camera  # , PiCamDirect
 from camspy.error import ImageReadException, ArducamException
 from camspy.model import Connector, VideoStream, ImageManip as im
+from camspy.stream import StreamingHandler, StreamingServer
 from camspy.utils import MultiCounter, start_thread, timestamp
 
 
-class ImageProcessor:
-
+class DataProcessor:
     def __init__(self, config):
         self.config = config
         self.logger = logging.getLogger("processor")
@@ -47,6 +47,12 @@ class ImageProcessor:
         self.camera.log_metrics = self.log_metrics
         self.camera.capture_image = self.send_images
         self.camera.framerate = processing_config['target_video_framerate']
+
+
+class ImageProcessor(DataProcessor):
+
+    def __init__(self, config):
+        super(ImageProcessor, self).__init__(config)
         self.compute_data_bar_geom()
 
     def run(self):
@@ -207,3 +213,32 @@ class ImagePlayer:
                     im.show(self.processor.apply_stream_transforms(image))
             except (ImageReadException, ArducamException) as e:
                 self.logger.warning("Bad image read: {}".format(e))
+
+
+class StreamProcessor(DataProcessor):
+    def __init__(self, config):
+        super(StreamProcessor, self).__init__(config)
+        self.logger = logging.getLogger("streamer")
+        # self.processor = ImageProcessor(config)
+        # self.processor.camera.start()
+
+    def run(self):
+
+        self.camera.start()
+
+        try:
+            address = ('', 8000)
+            StreamingHandler.output = self.camera.output
+            server = StreamingServer(address, StreamingHandler)
+            server.serve_forever()
+        finally:
+            self.camera.stop()
+
+        return
+        # while True:
+        #     try:
+        #         image = self.processor.camera.read_next_frame()
+        #         if image is not None:
+        #             im.show(self.processor.apply_stream_transforms(image))
+        #     except (ImageReadException, ArducamException) as e:
+        #         self.logger.warning("Bad image read: {}".format(e))

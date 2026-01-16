@@ -3,7 +3,7 @@ import logging
 import os
 import time
 from collections import deque
-
+from picamera2 import Picamera2
 # import ArducamSDK
 import cv2
 import numpy as np
@@ -15,9 +15,12 @@ from camspy.error import CameraConfigurationException, ArducamException
 from camspy.lib.ImageConvert import convert_image
 from camspy.resources import get_resource
 from camspy.utils import MultiCounter, start_thread, timestamp, ddrate
+from camspy.stream import StreamingOutput
 
+from picamera2.encoders import JpegEncoder
+from picamera2.outputs import FileOutput
 
-class Camera():
+class Camera:
 
     def __init__(self, config):
         self.camera_type = config['camera']
@@ -120,6 +123,49 @@ class UsbCam(Camera):
         self.logger.info('Stopping usbcam')
         self.stream.stop()
         pass
+
+class PiCam(Camera):
+
+    def __init__(self, config):
+        super(PiCam, self).__init__(config)
+        self.cam = None
+        self.output = None
+
+    def connect(self):
+        self.logger.info("Connecting to picamera")
+        for i in range(self.init_retry):
+            try:
+                self.logger.info("Attempt: {}".format(i))
+                self.cam = Picamera2()
+                config = self.cam.create_video_configuration(main={"size": (640, 480)})
+                self.cam.configure(config)
+                self.cam.rotation = self.cam_rotate
+                # self.cam.rotation = self.cam_rotate
+                time.sleep(self.init_delay)
+                return
+            except Exception as e:
+                self.logger.error("Failed to connect to camera: {}: {}".format(type(e), e))
+                time.sleep(self.init_delay)
+                if i == self.init_retry - 1:
+                    raise
+
+    def start(self):
+        self.logger.info("Starting picam")
+        self.connect()
+        self.output = StreamingOutput()
+        self.cam.start_recording(JpegEncoder(), FileOutput(self.output))
+
+        # self.cam.start_recording(PiCamBuffer(self.cam, self.add_image), 'rgb')
+        self.logger.info("Picam thread started")
+
+    def stop(self):
+        self.logger.info("Stopping picam")
+        self.cam.stop_recording()
+        self.cam.close()
+        self.images.clear()
+        self.logger.info("Picam stopped")
+
+
 # class PiCam(Camera):
 #
 #     def __init__(self, config):
