@@ -11,8 +11,10 @@ dependencies = [
     "imutils>=0.5.4",
     "numpy>=2.4.1",
     "opencv-python>=4.11.0.86",
+    "picamera2>=0.3.33",
     "pyyaml>=6.0.3",
     "requests>=2.32.5",
     "schema>=0.7.8",
     "simple-pid>=2.0.1",
+
 ]

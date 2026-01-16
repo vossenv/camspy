@@ -4,6 +4,8 @@ import os
 from collections import deque
 from datetime import datetime
 from os.path import join
+from picamera2.outputs import FfmpegOutput
+import time
 
 import cv2
 import imutils
@@ -68,6 +70,97 @@ class ImageManip():
 
         return image[top:h - bottom, left:w - right, :]
 
+class PicamFfmpegVideoWithSplit():
+
+    def __init__(self, filename_prefix=None, directory=None, max_file_size=0, resolution=None,
+                 fps=20, log_metrics=False):
+        self.filename_prefix = filename_prefix
+        self.directory = directory or os.getcwd()
+        self.frames = []
+        self.size = 0
+        self.disk_size = 0
+        self.max_file_size = max_file_size
+        self.file_count = 0
+        self.resolution = tuple(resolution or [1280, 964])
+        self.logger = logging.getLogger("video")
+        self.fps = fps
+        self.log_metrics = log_metrics
+        self.output_counter = MultiCounter(20)
+        os.makedirs(self.directory, exist_ok=True)
+        self.writer = None
+        self.data_rate = MultiCounter(5)
+        self.sizes = deque(maxlen=7)
+        self.cx = 0
+        self.output_filename = self.get_filename()
+        self.output = FfmpegOutput(self.output_filename)
+
+
+    def get_filename(self, extension='mp4'):
+        import random
+        r = random.randint(1,50)
+        r = 0
+        return join(self.directory, "LOCKED-{0}-{1}.{2}.{3}".format(
+            self.filename_prefix, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),r,extension))
+
+    def get_filesize(self, filename):
+        return round(os.stat(filename).st_size * 1e-6, 2)
+
+    # def get_writer(self):
+    #     self.get_filename()
+    #     return cv2.VideoWriter(self.filename, cv2.VideoWriter_fourcc('X', 'V', 'I', 'D'), self.fps, self.resolution)
+
+    def filesize_exceeded(self):
+        try:
+            self.disk_size = self.get_filesize(self.output_filename)
+            return round(self.disk_size) >=  10 #self.max_file_size
+        except Exception as e:
+            self.logger.info(e)
+            return False
+
+    def maybe_start_new_file(self):
+        if self.filesize_exceeded():
+            if self.log_metrics:
+                self.cx += 1
+                self.data_rate.increment()
+                self.sizes.append(self.disk_size)
+                self.logger.debug(
+                    "Data rate: {0} GB/day // count: {1}"
+                    .format(ddrate(self.data_rate.get_rate(), self.sizes), self.cx))
+            new_filename = self.get_filename()
+            self.logger.debug(
+                "Max size exceeded ({0}). Start new file: {1}".format(self.disk_size,new_filename))
+            # self.start_new_file(new_filename)
+            return new_filename
+
+
+
+    def start_new_file(self, filename=None):
+        self.output.stop()
+        time.sleep(3)
+        self.unlock_file()
+        self.output.output_filename = self.output_filename = filename
+        # self.output = FfmpegOutput(self.output_filename)
+
+        # self.output.start()
+        self.logger.debug('Restarted with {}, waiting'.format(self.output_filename))
+        # time.sleep(5)
+
+    #
+    def unlock_file(self):
+        os.rename(self.output_filename, self.output_filename.replace("LOCKED-", ""))
+    #
+    # def add_frame(self, frame):
+    #     if self.writer is None:
+    #         self.writer = self.get_writer()
+    #     self.writer.write(frame)
+    #     if self.output_counter.increment():
+    #         if self.output_counter.count > 5 or self.filesize_exceeded():
+    #             self.maybe_start_new_file(self.start_new_file())
+    #
+    # def start_new_file(self):
+    #     self.writer.release()
+    #     self.unlock_file()
+    #     self.writer = self.get_writer()
 
 class VideoStream():
 
@@ -90,8 +183,10 @@ class VideoStream():
         self.data_rate = MultiCounter(5)
         self.sizes = deque(maxlen=7)
         self.cx = 0
+        self.filename = None
 
     def get_filename(self, extension="avi"):
+        self.filename = self.get_filename()
         return join(self.directory, "LOCKED-{0}-{1}.{2}".format(
             self.filename_prefix, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), extension))
 
@@ -99,30 +194,40 @@ class VideoStream():
         return round(os.stat(filename).st_size * 1e-6, 2)
 
     def get_writer(self):
-        self.filename = self.get_filename()
+        self.get_filename()
         return cv2.VideoWriter(self.filename, cv2.VideoWriter_fourcc('X', 'V', 'I', 'D'), self.fps, self.resolution)
+
+    def filesize_exceeded(self):
+        self.disk_size = self.get_filesize(self.filename)
+        return round(self.disk_size) >= self.max_file_size
+
+    def maybe_start_new_file(self, start_new_file):
+        if self.filesize_exceeded():
+            if self.log_metrics:
+                self.cx += 1
+                self.data_rate.increment()
+                self.sizes.append(self.disk_size)
+                self.logger.debug(
+                    "Data rate: {0} GB/day // count: {1}"
+                    .format(ddrate(self.data_rate.get_rate(), self.sizes), self.cx))
+            start_new_file()
+            self.logger.debug(
+                "Max size exceeded ({0}). Start new file: {1}".format(self.disk_size, self.filename))
+
+    def unlock_file(self):
+        os.rename(self.filename, self.filename.replace("LOCKED-", ""))
 
     def add_frame(self, frame):
         if self.writer is None:
             self.writer = self.get_writer()
         self.writer.write(frame)
         if self.output_counter.increment():
-            self.disk_size = self.get_filesize(self.filename)
-            if self.output_counter.count > 5 or round(self.disk_size) >= self.max_file_size:
-                if self.log_metrics:
-                    self.cx += 1
-                    self.data_rate.increment()
-                    self.sizes.append(self.disk_size)
-                    self.logger.debug(
-                        "Data rate: {0} GB/day // count: {1}"
-                            .format(ddrate(self.data_rate.get_rate(), self.sizes), self.cx))
-                self.start_new_file()
-                self.logger.debug(
-                    "Max size exceeded ({0}). Start new file: {1}".format(self.disk_size, self.filename))
+            if self.output_counter.count > 5 or self.filesize_exceeded():
+                self.maybe_start_new_file(self.start_new_file())
 
     def start_new_file(self):
         self.writer.release()
-        os.rename(self.filename, self.filename.replace("LOCKED-", ""))
+        self.unlock_file()
         self.writer = self.get_writer()
 
 
@@ -160,3 +265,4 @@ class Connector:
         if r.status_code != 200:
             self.logger.error(r.content)
         return True
+

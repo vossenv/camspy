@@ -7,7 +7,7 @@ import click
 from click_default_group import DefaultGroup
 
 from camspy.config import load_config, ConfigValidationError
-from camspy.process import ImageProcessor, ImagePlayer, ImageWriter
+from camspy.process import ImageProcessor, ImagePlayer, ImageWriter, StreamProcessor
 from camspy.resources import get_resource
 from camspy.utils import get_environment, init_logger
 
@@ -71,6 +71,13 @@ def view(ctx, config_filename):
 def writeimage(ctx, config_filename, number):
     cfg = init_config(ctx.params, config_filename)
     ImageWriter(cfg).write_images(number)
+
+@cli.command(help="Serve @ port 8000")
+@click.pass_context
+@click.option('-c', '--config-filename', default='config.yaml', type=str)
+def stream(ctx, config_filename):
+    cfg = init_config(ctx.params, config_filename)
+    StreamProcessor(cfg).run()
 
 if __name__ == "__main__":
     cli()

@@ -1,23 +1,23 @@
-import json
 import logging
-import os
+import logging
 import time
 from collections import deque
 
+from picamera2 import Picamera2
+from picamera2.encoders import H264Encoder
+from picamera2.outputs import FfmpegOutput
+
+from camspy.model import VideoStream, PicamFfmpegVideoWithSplit
+from camspy.utils import MultiCounter
+
+
 # import ArducamSDK
-import cv2
-import numpy as np
 # import picamera
 # from picamera import PiCamera
 # from picamera.array import PiRGBAnalysis
 
-from camspy.error import CameraConfigurationException, ArducamException
-from camspy.lib.ImageConvert import convert_image
-from camspy.resources import get_resource
-from camspy.utils import MultiCounter, start_thread, timestamp, ddrate
 
-
-class Camera():
+class Camera:
 
     def __init__(self, config):
         self.camera_type = config['camera']
@@ -93,6 +93,7 @@ class Camera():
     def get_extra_label_info(self):
         return []
 
+
 class UsbCam(Camera):
 
     def __init__(self, config):
@@ -120,6 +121,79 @@ class UsbCam(Camera):
         self.logger.info('Stopping usbcam')
         self.stream.stop()
         pass
+
+
+class PiCam(Camera):
+
+    def __init__(self, config):
+        super(PiCam, self).__init__(config)
+        self.cam = None
+        self.output = []
+        self.encoder = H264Encoder(10000000)
+        self.encoder.output = []
+        self.video_stream = None
+
+    def connect(self):
+        self.logger.info("Connecting to picamera")
+        for i in range(self.init_retry):
+            try:
+                self.logger.info("Attempt: {}".format(i))
+                self.cam = Picamera2()
+                # config = self.cam.create_video_configuration(main={"size": (640, 480)})
+                config = self.cam.create_video_configuration()
+                self.cam.configure(config)
+                time.sleep(self.init_delay)
+                return
+            except Exception as e:
+                self.logger.error("Failed to connect to camera: {}: {}".format(type(e), e))
+                time.sleep(self.init_delay)
+                if i == self.init_retry - 1:
+                    raise
+
+    def start(self):
+        self.logger.info("Starting picam")
+        self.video_stream = PicamFfmpegVideoWithSplit(filename_prefix='testcam', log_metrics=True)
+        f = self.video_stream.get_filename()
+        self.cam.start_encoder(self.encoder, output=f)
+        self.cam.start()
+
+        # print("Recording and streaming started for 10 seconds...")
+        # try:
+        #     time.sleep(10)
+        # finally:
+        #     self.stop()
+        #     print("Audio/Video recording finished.")
+
+    def add_video_output(self):
+        pass
+
+        # # filename = self.video_stream.get_filename('mp4')
+        # # self.video_stream.output = PicamFfmpegVideoWithSplit(filename)
+        # self.logger.info("Adding video output to {}".format(self.video_stream.output_filename))
+        # self.encoder.output.append(self.video_stream.output)
+
+    def stop(self):
+        self.logger.info("Stopping picam")
+        self.cam.stop_encoder()
+        self.cam.stop()
+        self.logger.info("Picam stopped")
+
+    def check_new_file(self):
+        # self.logger.info("Checking new file")
+        # new_file = self.video_stream.maybe_start_new_file()
+        # if new_file is False:
+        #     self.stop()
+        #     self.video_stream.output_filename = new_file
+        #     self.video_stream.output.output_filename = new_file
+            # self.encoder.output.start()
+            # self.cam.start_encoder()
+            # self.start()
+        # self.video_stream.check_new_file()
+        pass
+        # self.cam.stop_encoder()
+        # self.video_stream.output.output_filename = self.video_stream.get_filename('mp4')
+        # self.cam.start_encoder(self.encoder)
+
 # class PiCam(Camera):
 #
 #     def __init__(self, config):
@@ -237,9 +311,6 @@ class UsbCam(Camera):
 #     def analyze(self, image):
 #         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 #         self.handler(image)
-
-
-
 
 
 # class ArduCam(Camera):
