@@ -7,9 +7,10 @@ import click
 from click_default_group import DefaultGroup
 
 from camspy.config import load_config, ConfigValidationError
-from camspy.process import ImageProcessor, ImagePlayer, ImageWriter, StreamProcessor
+from camspy.process import StreamProcessor
 from camspy.resources import get_resource
 from camspy.utils import get_environment, init_logger
+
 
 def log_meta(params, cfg):
     meta = get_environment()
@@ -54,23 +55,8 @@ def cli(ctx):
 @click.option('-c', '--config-filename', default='config.yaml', type=str)
 def run(ctx, config_filename):
     print("CAMSPY")
-    cfg = init_config(ctx.params, config_filename)
-    ImageProcessor(cfg).run()
-
-@cli.command(help="Display the feed (requires display)")
-@click.pass_context
-@click.option('-c', '--config-filename', default='config.yaml', type=str)
-def view(ctx, config_filename):
-    cfg = init_config(ctx.params, config_filename)
-    ImagePlayer(cfg).run()
-
-@cli.command(help="Write some test images")
-@click.pass_context
-@click.option('-c', '--config-filename', default='config.yaml', type=str)
-@click.option('-n', '--number', default=1, type=int)
-def writeimage(ctx, config_filename, number):
-    cfg = init_config(ctx.params, config_filename)
-    ImageWriter(cfg).write_images(number)
+    # cfg = init_config(ctx.params, config_filename)
+    # ImageProcessor(cfg).run()
 
 @cli.command(help="Serve @ port 8000")
 @click.pass_context
