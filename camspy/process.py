@@ -55,6 +55,7 @@ class StreamProcessor(DataProcessor):
         self.logger = logging.getLogger("streamer")
 
     def run(self):
+        # self.camera.test_cam()
         self.camera.test_cam()
         # self.camera.connect()
         # if self.record_video:
@@ -73,7 +74,7 @@ class StreamProcessor(DataProcessor):
         #
         # self.camera.stop()
 
-            # try:
+        #     try:
         #     address = ('', 8000)
         #     StreamingHandler.output = self.camera.output
         #     server = StreamingServer(address, StreamingHandler)

@@ -1,6 +1,8 @@
+import glob
 import io
 import logging
 import os
+import pathlib
 from collections import deque
 from datetime import datetime
 from operator import truediv
@@ -92,20 +94,20 @@ class VideoFileStream():
         self.data_rate = MultiCounter(5)
         self.sizes = deque(maxlen=7)
         self.cx = 0
-        self.output_filename = self.get_filename()
-        # self.output = FfmpegOutput(self.output_filename)
+        self.output_filename = None
+        self.new_file()
 
     def new_file(self):
-        self.output_filename = self.get_filename()
         self.file_count += 1
+        self.output_filename = self.get_filename()
         return self.output_filename
 
     def get_filename(self, extension='mp4'):
         import random
         # r = random.randint(1,50)
         # r = 0
-        return join(self.directory, "LOCKED-{0}-{1}.{2}".format(
-            self.filename_prefix, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),extension))
+        return join(self.directory, "#{}-{}-{}.{}".format(
+            self.file_count,self.filename_prefix, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),extension))
 
     def get_filesize(self, filename):
         return round(os.stat(filename).st_size * 1e-6, 2)
@@ -163,6 +165,17 @@ class VideoFileStream():
         # time.sleep(5)
 
     #
+    def delete_all(self):
+        dir = pathlib.Path(self.output_filename).parent
+        files = dir / '*.mp4'
+
+        for file_path in glob.glob(files.absolute().as_posix()):
+            self.logger.debug('Deleting {}'.format(file_path))
+            os.remove(file_path)
+
+
+        print(dir.absolute())
+
     def unlock_file(self):
         os.rename(self.output_filename, self.output_filename.replace("LOCKED-", ""))
     #

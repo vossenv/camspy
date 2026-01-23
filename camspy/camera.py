@@ -5,12 +5,13 @@ from collections import deque
 from dataclasses import field
 
 from picamera2 import Picamera2
-from picamera2.encoders import H264Encoder
-from picamera2.outputs import FfmpegOutput
+from picamera2.encoders import H264Encoder, JpegEncoder
+from picamera2.outputs import FfmpegOutput, FileOutput
 
 from camspy.model import VideoStream, VideoFileStream
-from camspy.utils import MultiCounter
+from camspy.utils import MultiCounter, start_thread
 from picamera2.outputs import PyavOutput, SplittableOutput
+from camspy.stream import StreamingHandler, StreamingServer, StreamingOutput
 
 
 # import ArducamSDK
@@ -131,7 +132,7 @@ class PiCam(Camera):
         super(PiCam, self).__init__(config)
         self.cam = None
         self.output = []
-        self.encoder = H264Encoder(10000000)
+        self.encoder = H264Encoder(3000000)
         self.encoder.output = []
         self.video_stream = None
 
@@ -142,7 +143,7 @@ class PiCam(Camera):
                 self.logger.info("Attempt: {}".format(i))
                 self.cam = Picamera2()
                 # config = self.cam.create_video_configuration(main={"size": (640, 480)})
-                config = self.cam.create_video_configuration()
+                config = self.cam.create_video_configuration(main={"size": (1200, 1200)})
                 self.cam.configure(config)
                 time.sleep(self.init_delay)
                 return
@@ -174,67 +175,65 @@ class PiCam(Camera):
         # self.logger.info("Adding video output to {}".format(self.video_stream.output_filename))
         # self.encoder.output.append(self.video_stream.output)
 
+    def test_cam_stream(self):
+        try:
+            address = ('', 8000)
+            self.connect()
+            output = StreamingOutput()
+            self.cam.start_recording(JpegEncoder(), FileOutput(output))
+            StreamingHandler.output = output
+            server = StreamingServer(address, StreamingHandler)
+            server.serve_forever()
+            while True:
+                print('slp')
+                time.sleep(5)
+        finally:
+            self.cam.stop()
+
+    def serve_test(self, output):
+        address = ('', 8000)
+        self.logger.info('Webstream started at 8000')
+        StreamingHandler.output = output
+        server = StreamingServer(address, StreamingHandler)
+        server.serve_forever()
+
     def test_cam(self):
         dir = 'video'
         filestream = VideoFileStream(filename_prefix='testcam', log_metrics=True, directory=dir)
+        filestream.delete_all()
+
         self.video_stream = filestream
         filename = filestream.output_filename
-        ffmpeg = FfmpegOutput(filename)
-        ffmpeg2 = FfmpegOutput(dir + '/out_2.mp4')
-        encoder1 = H264Encoder(10000000)
-        encoder2 = H264Encoder(1000000)
-
+        encoder1 = H264Encoder(3000000)
         pyav = PyavOutput(filename)
-
         splitter = SplittableOutput(output=pyav)
-
-
-
-        outputs = {
-            'video_1': ffmpeg,
-            'video_2': ffmpeg2,
-        }
-
         encoder1.output = splitter
-        encoder2.output = ffmpeg2
+
+        stream_out = StreamingOutput()
+        web_enc = JpegEncoder()
+        web_out = FileOutput(stream_out)
 
         self.connect()
+        self.cam.start_encoder(web_enc, web_out)
         self.cam.start_encoder(encoder1)
-        # self.cam.start_encoder(encoder2)
         self.cam.start()
 
-        print("Recording started...")
+        start_thread(self.serve_test, output=stream_out)
 
+        self.logger.info("Recording started...")
         try:
             while True:
                 time.sleep(5)
-
-                if filestream.file_count > 5:
-                    self.logger.debug('5 videos created')
-                    break
                 if filestream.should_start_new_file():
                     self.logger.debug("Max size exceeded ({})".format(filestream.disk_size))
-                    # ffmpeg.stop()
-                    # self.cam.stop_encoder(encoder1)
-                    # filestream.unlock_file()
                     filename = filestream.new_file()
-                    # ffmpeg.output_filename = filename
                     self.logger.debug("Start new file: {}".format(filename))
-                    # self.cam.start_encoder(encoder1)
-                    splitter.split_output(PyavOutput(filename))
+                    self.logger.info("File count: {}".format(filestream.file_count))
+                    splitter.split_output(PyavOutput(filename), wait_for_keyframe=True)
         finally:
             self.cam.stop_encoder()
             self.cam.stop()
-            # filestream.unlock_file()
             print("Stopped.")
-
-        pass
-
-        # while True:
-        #     if self.record_video:
-        #         time.sleep(5)
-        #         self.camera.check_new_file()
-        #         self.camera.stop()
 
     def stop(self):
         self.logger.info("Stopping picam")
