@@ -2,13 +2,15 @@ import logging
 import logging
 import time
 from collections import deque
+from dataclasses import field
 
 from picamera2 import Picamera2
 from picamera2.encoders import H264Encoder
 from picamera2.outputs import FfmpegOutput
 
-from camspy.model import VideoStream, PicamFfmpegVideoWithSplit
+from camspy.model import VideoStream, VideoFileStream
 from camspy.utils import MultiCounter
+from picamera2.outputs import PyavOutput, SplittableOutput
 
 
 # import ArducamSDK
@@ -152,7 +154,7 @@ class PiCam(Camera):
 
     def start(self):
         self.logger.info("Starting picam")
-        self.video_stream = PicamFfmpegVideoWithSplit(filename_prefix='testcam', log_metrics=True)
+        self.video_stream = VideoFileStream(filename_prefix='testcam', log_metrics=True)
         f = self.video_stream.get_filename()
         self.cam.start_encoder(self.encoder, output=f)
         self.cam.start()
@@ -172,6 +174,68 @@ class PiCam(Camera):
         # self.logger.info("Adding video output to {}".format(self.video_stream.output_filename))
         # self.encoder.output.append(self.video_stream.output)
 
+    def test_cam(self):
+        dir = 'video'
+        filestream = VideoFileStream(filename_prefix='testcam', log_metrics=True, directory=dir)
+        self.video_stream = filestream
+        filename = filestream.output_filename
+        ffmpeg = FfmpegOutput(filename)
+        ffmpeg2 = FfmpegOutput(dir + '/out_2.mp4')
+        encoder1 = H264Encoder(10000000)
+        encoder2 = H264Encoder(1000000)
+
+        pyav = PyavOutput(filename)
+
+        splitter = SplittableOutput(output=pyav)
+
+
+
+        outputs = {
+            'video_1': ffmpeg,
+            'video_2': ffmpeg2,
+        }
+
+        encoder1.output = splitter
+        encoder2.output = ffmpeg2
+
+        self.connect()
+        self.cam.start_encoder(encoder1)
+        # self.cam.start_encoder(encoder2)
+        self.cam.start()
+
+        print("Recording started...")
+
+        try:
+            while True:
+                time.sleep(5)
+
+                if filestream.file_count > 5:
+                    self.logger.debug('5 videos created')
+                    break
+                if filestream.should_start_new_file():
+                    self.logger.debug("Max size exceeded ({})".format(filestream.disk_size))
+                    # ffmpeg.stop()
+                    # self.cam.stop_encoder(encoder1)
+                    # filestream.unlock_file()
+                    filename = filestream.new_file()
+                    # ffmpeg.output_filename = filename
+                    self.logger.debug("Start new file: {}".format(filename))
+                    # self.cam.start_encoder(encoder1)
+                    splitter.split_output(PyavOutput(filename))
+        finally:
+            self.cam.stop_encoder()
+            self.cam.stop()
+            # filestream.unlock_file()
+            print("Stopped.")
+
+        pass
+
+        # while True:
+        #     if self.record_video:
+        #         time.sleep(5)
+        #         self.camera.check_new_file()
+        #         self.camera.stop()
+
     def stop(self):
         self.logger.info("Stopping picam")
         self.cam.stop_encoder()
@@ -185,9 +249,9 @@ class PiCam(Camera):
         #     self.stop()
         #     self.video_stream.output_filename = new_file
         #     self.video_stream.output.output_filename = new_file
-            # self.encoder.output.start()
-            # self.cam.start_encoder()
-            # self.start()
+        # self.encoder.output.start()
+        # self.cam.start_encoder()
+        # self.start()
         # self.video_stream.check_new_file()
         pass
         # self.cam.stop_encoder()

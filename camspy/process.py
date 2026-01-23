@@ -49,6 +49,49 @@ class DataProcessor:
         self.camera.framerate = processing_config['target_video_framerate']
 
 
+class StreamProcessor(DataProcessor):
+    def __init__(self, config):
+        super(StreamProcessor, self).__init__(config)
+        self.logger = logging.getLogger("streamer")
+
+    def run(self):
+        self.camera.test_cam()
+        # self.camera.connect()
+        # if self.record_video:
+        #     self.camera.add_video_output()
+        #
+        # # self.camera.connect()
+        # self.camera.start()
+
+        # print('banana')
+
+        # while True:
+        #     if self.record_video:
+        #         time.sleep(5)
+        #         self.camera.check_new_file()
+        #         self.camera.stop()
+        #
+        # self.camera.stop()
+
+            # try:
+        #     address = ('', 8000)
+        #     StreamingHandler.output = self.camera.output
+        #     server = StreamingServer(address, StreamingHandler)
+        #     server.serve_forever()
+        # finally:
+        #     self.camera.stop()
+
+        return
+        # while True:
+        #     try:
+        #         image = self.processor.camera.read_next_frame()
+        #         if image is not None:
+        #             im.show(self.processor.apply_stream_transforms(image))
+        #     except (ImageReadException, ArducamException) as e:
+        #         self.logger.warning("Bad image read: {}".format(e))
+
+
+
 class ImageProcessor(DataProcessor):
 
     def __init__(self, config):
@@ -215,45 +258,3 @@ class ImagePlayer:
                 self.logger.warning("Bad image read: {}".format(e))
 
 
-class StreamProcessor(DataProcessor):
-    def __init__(self, config):
-        super(StreamProcessor, self).__init__(config)
-        self.logger = logging.getLogger("streamer")
-
-    def run(self):
-        self.camera.connect()
-        if self.record_video:
-            self.camera.add_video_output()
-
-        # self.camera.connect()
-        self.camera.start()
-
-        # print('banana')
-
-        while True:
-            if self.record_video:
-                time.sleep(5)
-                self.camera.check_new_file()
-                self.camera.stop()
-
-
-
-
-        self.camera.stop()
-
-            # try:
-        #     address = ('', 8000)
-        #     StreamingHandler.output = self.camera.output
-        #     server = StreamingServer(address, StreamingHandler)
-        #     server.serve_forever()
-        # finally:
-        #     self.camera.stop()
-
-        return
-        # while True:
-        #     try:
-        #         image = self.processor.camera.read_next_frame()
-        #         if image is not None:
-        #             im.show(self.processor.apply_stream_transforms(image))
-        #     except (ImageReadException, ArducamException) as e:
-        #         self.logger.warning("Bad image read: {}".format(e))

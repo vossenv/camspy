@@ -3,6 +3,7 @@ import logging
 import os
 from collections import deque
 from datetime import datetime
+from operator import truediv
 from os.path import join
 from picamera2.outputs import FfmpegOutput
 import time
@@ -70,7 +71,7 @@ class ImageManip():
 
         return image[top:h - bottom, left:w - right, :]
 
-class PicamFfmpegVideoWithSplit():
+class VideoFileStream():
 
     def __init__(self, filename_prefix=None, directory=None, max_file_size=0, resolution=None,
                  fps=20, log_metrics=False):
@@ -92,15 +93,19 @@ class PicamFfmpegVideoWithSplit():
         self.sizes = deque(maxlen=7)
         self.cx = 0
         self.output_filename = self.get_filename()
-        self.output = FfmpegOutput(self.output_filename)
+        # self.output = FfmpegOutput(self.output_filename)
 
+    def new_file(self):
+        self.output_filename = self.get_filename()
+        self.file_count += 1
+        return self.output_filename
 
     def get_filename(self, extension='mp4'):
         import random
-        r = random.randint(1,50)
-        r = 0
-        return join(self.directory, "LOCKED-{0}-{1}.{2}.{3}".format(
-            self.filename_prefix, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),r,extension))
+        # r = random.randint(1,50)
+        # r = 0
+        return join(self.directory, "LOCKED-{0}-{1}.{2}".format(
+            self.filename_prefix, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),extension))
 
     def get_filesize(self, filename):
         return round(os.stat(filename).st_size * 1e-6, 2)
@@ -117,7 +122,7 @@ class PicamFfmpegVideoWithSplit():
             self.logger.info(e)
             return False
 
-    def maybe_start_new_file(self):
+    def should_start_new_file(self):
         if self.filesize_exceeded():
             if self.log_metrics:
                 self.cx += 1
@@ -126,11 +131,23 @@ class PicamFfmpegVideoWithSplit():
                 self.logger.debug(
                     "Data rate: {0} GB/day // count: {1}"
                     .format(ddrate(self.data_rate.get_rate(), self.sizes), self.cx))
-            new_filename = self.get_filename()
-            self.logger.debug(
-                "Max size exceeded ({0}). Start new file: {1}".format(self.disk_size,new_filename))
-            # self.start_new_file(new_filename)
-            return new_filename
+            return True
+        return False
+
+    # def maybe_start_new_file(self):
+    #     if self.filesize_exceeded():
+    #         if self.log_metrics:
+    #             self.cx += 1
+    #             self.data_rate.increment()
+    #             self.sizes.append(self.disk_size)
+    #             self.logger.debug(
+    #                 "Data rate: {0} GB/day // count: {1}"
+    #                 .format(ddrate(self.data_rate.get_rate(), self.sizes), self.cx))
+    #         new_filename = self.get_filename()
+    #         self.logger.debug(
+    #             "Max size exceeded ({0}). Start new file: {1}".format(self.disk_size,new_filename))
+    #         # self.start_new_file(new_filename)
+    #         return new_filename
 
 
 
