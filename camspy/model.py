@@ -3,7 +3,6 @@ import io
 import logging
 import os
 import pathlib
-import time
 from collections import deque
 from datetime import datetime
 from os.path import join
@@ -73,56 +72,53 @@ class ImageManip():
 
 
 class VideoFile:
-
-    def __init__(self, filename_prefix=None, directory=None, max_file_size=0, resolution=None,
-                 fps=20, log_metrics=False):
-        self.filename_prefix = filename_prefix
-        self.directory = directory or os.getcwd()
-        self.frames = []
-        self.disk_size = 0
-        self.max_file_size = max_file_size
+    def __init__(self, name, output_directory, max_video_file_size=50, log_metrics=False,
+                 **kwargs):
+        self.current_file_size = 0
         self.file_count = 0
-        self.resolution = tuple(resolution or [1280, 964])
-        self.logger = logging.getLogger("video")
-        self.fps = fps
-        self.log_metrics = log_metrics
-        self.output_counter = MultiCounter(20)
-        os.makedirs(self.directory, exist_ok=True)
         self.data_rate = MultiCounter(5)
-        # self.sizes = deque(maxlen=7)
-        self.cx = 0
+        self.sizes = deque(maxlen=7)
+        self.logger = logging.getLogger("video_file_output")
+        self.log_metrics = log_metrics
+        self.output_directory = output_directory
+        self.video_identifier = name
+        self.max_video_file_size = max_video_file_size
         self.output_filename = None
-        self.new_file()
+        os.makedirs(self.output_directory, exist_ok=True)
+        self.start_new_file()
 
-    def new_file(self):
+    def delete_all(self):
+        files = pathlib.Path(self.output_directory) / '*.mp4'
+        for file_path in glob.glob(files.absolute().as_posix()):
+            self.logger.debug('Deleting {}'.format(file_path))
+            os.remove(file_path)
+
+    def start_new_file(self):
         self.file_count += 1
         self.output_filename = self.get_filename()
         return self.output_filename
 
     def get_filename(self, extension='mp4'):
-        return join(self.directory, "#{}-{}-{}.{}".format(
-            self.file_count, self.filename_prefix, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), extension))
+        return join(self.output_directory, "#{}-{}-{}.{}".format(
+            self.file_count, self.video_identifier, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), extension))
 
-    def get_filesize(self, filename):
-        return round(os.stat(filename).st_size * 1e-6, 2)
-
-    def filesize_exceeded(self):
+    def check_file_size(self):
         try:
-            self.disk_size = self.get_filesize(self.output_filename)
-            return round(self.disk_size) >= 10  # self.max_file_size
+            self.current_file_size = round(os.stat(self.output_filename).st_size * 1e-6, 2)
+            return round(self.current_file_size) >= self.max_video_file_size
         except Exception as e:
             self.logger.info(e)
             return False
 
     def should_start_new_file(self):
-        if self.filesize_exceeded():
+        if self.check_file_size():
+            self.logger.debug("Max size exceeded ({})".format(self.current_file_size))
             if self.log_metrics:
-                self.cx += 1
                 self.data_rate.increment()
-                self.sizes.append(self.disk_size)
+                self.sizes.append(self.current_file_size)
                 self.logger.debug(
-                    "Data rate: {0} GB/day // count: {1}"
-                    .format(ddrate(self.data_rate.get_rate(), self.sizes), self.cx))
+                    "Data rate: {0} GB/day // file count: {1}"
+                    .format(ddrate(self.data_rate.get_rate(), self.sizes), self.file_count))
             return True
         return False
 
@@ -141,30 +137,18 @@ class VideoFile:
     #         # self.start_new_file(new_filename)
     #         return new_filename
 
-    def start_new_file(self, filename=None):
-        self.output.stop()
-        time.sleep(3)
-        self.unlock_file()
-        self.output.output_filename = self.output_filename = filename
-        # self.output = FfmpegOutput(self.output_filename)
-
-        # self.output.start()
-        self.logger.debug('Restarted with {}, waiting'.format(self.output_filename))
-        # time.sleep(5)
-
+    # def start_new_file(self, filename=None):
+    #     self.output.stop()
+    #     time.sleep(3)
+    #     self.unlock_file()
+    #     self.output.output_filename = self.output_filename = filename
+    #     # self.output = FfmpegOutput(self.output_filename)
     #
-    def delete_all(self):
-        dir = pathlib.Path(self.output_filename).parent
-        files = dir / '*.mp4'
+    #     # self.output.start()
+    #     self.logger.debug('Restarted with {}, waiting'.format(self.output_filename))
 
-        for file_path in glob.glob(files.absolute().as_posix()):
-            self.logger.debug('Deleting {}'.format(file_path))
-            os.remove(file_path)
-
-        print(dir.absolute())
-
-    def unlock_file(self):
-        os.rename(self.output_filename, self.output_filename.replace("LOCKED-", ""))
+    # def unlock_file(self):
+    #     os.rename(self.output_filename, self.output_filename.replace("LOCKED-", ""))
 
 
 class Connector:

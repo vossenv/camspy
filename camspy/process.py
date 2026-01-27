@@ -1,4 +1,5 @@
 import logging
+import time
 
 from camspy.camera import Camera  # , PiCamDirect
 
@@ -9,13 +10,19 @@ class DataProcessor:
         self.logger = logging.getLogger("processor")
         self.camera = Camera.create(self.config['device'])
         processing_config = config['processing']
+        recording_config = config['recording']
         self.connector = None
         self.text_scaling = {}
         self.record_video = processing_config['record_video']
-        self.recording_directory = processing_config['recording_directory']
+
+        self.recording_directory = recording_config['output_directory']
+        self.resolution = recording_config['resolution']
+        self.max_video_file_size = recording_config['max_video_file_size']
+        self.bitrate = recording_config['bitrate']
+
         self.send_images = processing_config['send_images']
         self.send_video = processing_config['send_video']
-        self.video_filesize = processing_config['video_filesize']
+
         self.crop = processing_config['crop']
         self.rotation = processing_config['rotation']
         self.image_size = processing_config['image_size']
@@ -42,9 +49,17 @@ class StreamProcessor(DataProcessor):
         self.logger = logging.getLogger("streamer")
 
     def run(self):
-        # self.camera.test_cam()
-        self.camera.test_cam()
-        # self.camera.connect()
+        try:
+            self.camera.add_video_output(self.config)
+            self.camera.add_mjpeg_stream()
+            self.camera.start()
+
+            while True:
+                time.sleep(3)
+        finally:
+            self.camera.stop()
+
+
         # if self.record_video:
         #     self.camera.add_video_output()
         #

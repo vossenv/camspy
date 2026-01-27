@@ -15,6 +15,7 @@ def config_schema() -> Schema:
     from schema import And, Or
     return Schema({
         'device': {
+            'name': And(str, len),
             'camera': Or('picam', 'arducam', 'usb', 'picam-direct'),
             'device_id': int,
             'frame_size': [int, int],
@@ -22,14 +23,22 @@ def config_schema() -> Schema:
             'init_retry': Or(float, int),
             'arducam_registers': Or(None, And(str, len)),
             'max_error_rate': Or(float, int),
-            'cam_rotate': Or(0, 90, 180, 270),
             'codec': Or('h264'),
             'annotation_scale': int,
+            'flip_vertical': bool,
+            'flip_horizontal': bool,
         },
         Optional('connection'): {
             'name': And(str, len),
             'host': And(str, len),
             'timeout': int,
+        },
+        Optional('recording'): {
+            'output_directory': Or(None, And(str, len)),
+            'max_video_file_size': Or(float, int),
+            'resolution': [int, int],
+            'bitrate': int,
+            'framerate': int,
         },
         Optional('processing'): {
             'target_video_framerate': Or(int, float),
@@ -39,12 +48,12 @@ def config_schema() -> Schema:
             'web_fr_pid': Or(None, [Or(int, float), Or(int, float),
                                     Or(int, float), Or(int, float), Or(int, float), Or(int, float)]),
             'show_fps': Or(None, bool),
-            'recording_directory': Or(None, And(str, len)),
+
             'record_video': Or(None, bool),
             'send_video': Or(None, bool),
             'send_images': Or(None, bool),
             'crop': [int, int, int, int],
-            'video_filesize': Or(float, int),
+
             'rotation': Or(float, int),
             'image_size': Or(None, [int, int]),
             'data_bar_web': [Or(float, int), int],
@@ -65,23 +74,21 @@ def config_schema() -> Schema:
 def load_config(path):
     with open(path) as f:
         cfg = yaml.safe_load(f) or {}
-    cfgm = merge_dict(CONFIG_DEFAULTS, cfg, True)
+    merged_cfg = merge_dict(CONFIG_DEFAULTS, cfg, True)
+    path = merged_cfg['recording']['output_directory']
+    merged_cfg['recording']['output_directory'] = os.path.abspath(path)
 
-    # path = cfgm['logging']['filename']
-    # cfgm['logging']['filename'] = os.path.abspath(path)
-
-    path = cfgm['processing']['recording_directory']
-    cfgm['processing']['recording_directory'] = os.path.abspath(path)
-
-    path = cfgm['device']['arducam_registers']
+    path = merged_cfg['device']['arducam_registers']
     if path is not None:
         path = os.path.abspath(path)
         if not os.path.exists(path):
             raise FileNotFoundError("Cannot find {} ".format(path))
         cfg['device']['arducam_registers'] = path
 
-    _validate(cfgm)
-    return cfgm
+    _validate(merged_cfg)
+    merged_cfg['recording']['name'] = merged_cfg['device']['name']
+    merged_cfg['recording']['log_metrics'] = merged_cfg['logging']['log_metrics']
+    return merged_cfg
 
 
 def _validate(raw_config: dict):
