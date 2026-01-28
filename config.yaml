@@ -1,9 +1,10 @@
+env_path: '~/.camspy_env'
 device:
   name: 'test_cam'
   arducam_registers:    # leave blank for defaults - AR0134_960p_Color.json
   camera: picam
   device_id: 0
-  frame_size: [1200, 1200]
+  frame_size: [300, 300]
   init_delay: 1
   init_retry: 10
   max_error_rate: 5       # arducam only
@@ -12,9 +13,15 @@ device:
   flip_vertical: true
   flip_horizontal: true
 connection:
-  host: http://192.168.50.139:9001
+  host: X
   name: default_cam
   timeout: 10
+sftp:
+  host: SF_HOST
+  port: SF_PORT
+  username: SF_USER
+  password: SF_PASS
+  remote_dir: SF_REMOTE_DIR
 logging:
   filename: cam.log
   level: debug
@@ -24,23 +31,16 @@ logging:
   log_extra_info: true
   log_dir: logs
 recording:
-  output_directory: video2
-  resolution: [1200,1200]
-  max_video_file_size: 10                # megabytes
-  bitrate: 3000 #kB/sec
+  output_directory: video
+  resolution: [640, 480]
+  max_video_file_size: 5                # megabytes
+  bitrate: 6000 #kB/sec
   framerate: 30 # not works...
-processing:
+  data_bar: [0.8, 10]    # scale, padding
   show_fps: true
-  target_video_framerate: 6
-  target_web_framerate: 3
-  video_fr_pid: [ -0.3, 0.3, 0.05, 0, 0.4, 10 ] # p/i/d/min/max/# of frames
-  web_fr_pid: [ -1, 0.3, 0.05, 0, 0.4, 10 ]
+processing:
   record_video: true
-  send_images: false
-  send_video: false
-  crop: [ 0, 0, 0, 0 ]     # top, left, bottom, right (%)
-  rotation: 0
-  image_size:  #[500, 500]     # width, height (for posted images)
-  data_bar_web: [0.8, 10]      # comment to disable
-  data_bar_video: [0.8, 10]    # scale, padding
+  mjpeg_stream: true
+  send_video: true
+
 

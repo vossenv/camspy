@@ -1,11 +1,13 @@
 import os
 from collections.abc import Mapping
 from copy import deepcopy
+from pathlib import Path
 
 import yaml
 from schema import Schema, Optional
 
 from camspy.resources import get_resource
+from camspy.utils import get_abs
 
 with open(get_resource('config_defaults.yaml')) as f:
     CONFIG_DEFAULTS = yaml.safe_load(f)
@@ -14,6 +16,7 @@ with open(get_resource('config_defaults.yaml')) as f:
 def config_schema() -> Schema:
     from schema import And, Or
     return Schema({
+        'env_path': And(str, len),
         'device': {
             'name': And(str, len),
             'camera': Or('picam', 'arducam', 'usb', 'picam-direct'),
@@ -33,31 +36,26 @@ def config_schema() -> Schema:
             'host': And(str, len),
             'timeout': int,
         },
+        Optional('sftp'): {
+            'host': And(str, len),
+            'port': And(str, len),
+            'username': And(str, len),
+            'password': And(str, len),
+            'remote_dir': And(str, len),
+        },
         Optional('recording'): {
             'output_directory': Or(None, And(str, len)),
             'max_video_file_size': Or(float, int),
             'resolution': [int, int],
             'bitrate': int,
             'framerate': int,
+            'data_bar': [Or(float, int), int],
+            'show_fps': Or(None, bool),
         },
         Optional('processing'): {
-            'target_video_framerate': Or(int, float),
-            'target_web_framerate': Or(int, float),
-            'video_fr_pid': Or(None, [Or(int, float), Or(int, float),
-                                      Or(int, float), Or(int, float), Or(int, float), Or(int, float)]),
-            'web_fr_pid': Or(None, [Or(int, float), Or(int, float),
-                                    Or(int, float), Or(int, float), Or(int, float), Or(int, float)]),
-            'show_fps': Or(None, bool),
-
+            'mjpeg_stream': Or(None, bool),
             'record_video': Or(None, bool),
             'send_video': Or(None, bool),
-            'send_images': Or(None, bool),
-            'crop': [int, int, int, int],
-
-            'rotation': Or(float, int),
-            'image_size': Or(None, [int, int]),
-            'data_bar_web': [Or(float, int), int],
-            'data_bar_video': [Or(float, int), int],
         },
         Optional('logging'): {
             'level': Or('info', 'debug', 'INFO', 'DEBUG'),
@@ -71,24 +69,29 @@ def config_schema() -> Schema:
     })
 
 
+
 def load_config(path):
     with open(path) as f:
         cfg = yaml.safe_load(f) or {}
+
     merged_cfg = merge_dict(CONFIG_DEFAULTS, cfg, True)
-    path = merged_cfg['recording']['output_directory']
-    merged_cfg['recording']['output_directory'] = os.path.abspath(path)
-
-    path = merged_cfg['device']['arducam_registers']
-    if path is not None:
-        path = os.path.abspath(path)
-        if not os.path.exists(path):
-            raise FileNotFoundError("Cannot find {} ".format(path))
-        cfg['device']['arducam_registers'] = path
-
     _validate(merged_cfg)
+
+    env_path = get_abs(Path(merged_cfg['env_path']))
+    recording_dir = get_abs(Path(merged_cfg['recording']['output_directory']))
+
+    merged_cfg['env_path'] = env_path.as_posix()
+    merged_cfg['recording']['output_directory'] = recording_dir.as_posix()
     merged_cfg['recording']['name'] = merged_cfg['device']['name']
     merged_cfg['recording']['log_metrics'] = merged_cfg['logging']['log_metrics']
     return merged_cfg
+
+    # path = merged_cfg['device']['arducam_registers']
+    # if path is not None:
+    #     path = os.path.abspath(path)
+    #     if not os.path.exists(path):
+    #         raise FileNotFoundError("Cannot find {} ".format(path))
+    #     cfg['device']['arducam_registers'] = path
 
 
 def _validate(raw_config: dict):

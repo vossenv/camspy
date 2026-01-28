@@ -8,7 +8,7 @@ from picamera2.encoders import H264Encoder, JpegEncoder
 from picamera2.outputs import FileOutput
 from picamera2.outputs import PyavOutput, SplittableOutput
 
-from camspy.model import VideoFile
+from camspy.model import VideoFileHandler
 from camspy.stream import StreamingHandler, StreamingServer, StreamingOutput
 from camspy.utils import MultiCounter, start_thread, get_ip
 
@@ -78,7 +78,7 @@ class Camera:
     def get_extra_label_info(self):
         return []
 
-    def add_video_output(self, config):
+    def add_video_output(self, config, video_handler):
         pass
 
 
@@ -136,9 +136,9 @@ class PiCam(Camera):
             video_config['framerate']
         ))
 
-    def add_video_output(self, config):
+    def add_video_output(self, config, video_handler):
         self.video_config = video_config = config['recording']
-        self.video_output = VideoFile(**video_config)
+        self.video_output = video_handler
         self.log_video_info('Configuring')
         self.video_output.delete_all()
         encoder = H264Encoder(video_config['bitrate'] * 1000, framerate=video_config['framerate'])

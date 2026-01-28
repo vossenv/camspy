@@ -26,6 +26,8 @@ def ddrate(hz, measuerments):
 def is_windows():
     return platform.system().lower() == "windows"
 
+def get_abs(path: Path) -> Path:
+    return path.expanduser().absolute()
 
 def get_environment():
     env_os = platform.system()

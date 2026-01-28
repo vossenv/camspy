@@ -2,6 +2,8 @@ import logging
 import time
 
 from camspy.camera import Camera  # , PiCamDirect
+from camspy.model import SFTPConnector, VideoFileHandler
+from camspy.utils import start_thread
 
 
 class DataProcessor:
@@ -10,38 +12,13 @@ class DataProcessor:
         self.logger = logging.getLogger("processor")
         self.camera = Camera.create(self.config['device'])
         processing_config = config['processing']
-        recording_config = config['recording']
-        self.connector = None
-        self.text_scaling = {}
         self.record_video = processing_config['record_video']
-
-        self.recording_directory = recording_config['output_directory']
-        self.resolution = recording_config['resolution']
-        self.max_video_file_size = recording_config['max_video_file_size']
-        self.bitrate = recording_config['bitrate']
-
-        self.send_images = processing_config['send_images']
         self.send_video = processing_config['send_video']
-
-        self.crop = processing_config['crop']
-        self.rotation = processing_config['rotation']
-        self.image_size = processing_config['image_size']
-        self.data_scaling = {
-            'video': processing_config['data_bar_video'],
-            'web': processing_config['data_bar_web']
-        }
-        self.target_web_framerate = processing_config['target_web_framerate']
-        self.target_video_framerate = processing_config['target_video_framerate']
-        self.show_fps = processing_config['show_fps']
-        self.vid_pid = processing_config['video_fr_pid']
-        self.web_pid = processing_config['web_fr_pid']
-        self.log_metrics = self.config['logging']['log_metrics']
-        self.ignore_warnings = self.camera.ignore_warnings = self.config['logging']['ignore_warnings']
-        self.log_extra_info = self.camera.log_extra_info = self.config['logging']['log_extra_info']
-        self.camera.log_metrics = self.log_metrics
-        self.camera.capture_image = self.send_images
-        self.camera.framerate = processing_config['target_video_framerate']
-
+        self.mjpeg_stream = processing_config['mjpeg_stream']
+        self.video_config = config['recording']
+        if self.record_video or self.send_video:
+            video_config = self.config['recording']
+            self.video_handler = VideoFileHandler(**video_config)
 
 class StreamProcessor(DataProcessor):
     def __init__(self, config):
@@ -50,15 +27,22 @@ class StreamProcessor(DataProcessor):
 
     def run(self):
         try:
-            self.camera.add_video_output(self.config)
-            self.camera.add_mjpeg_stream()
+            if self.record_video:
+                self.camera.add_video_output(self.config, self.video_handler)
+            if self.send_video:
+                self.video_handler.add_sftp(SFTPConnector(self.config['sftp']))
+                start_thread(self.video_handler.monitor_and_send)
+            if self.mjpeg_stream:
+                self.camera.add_mjpeg_stream()
             self.camera.start()
 
             while True:
                 time.sleep(3)
         finally:
-            self.camera.stop()
-
+            try:
+                self.camera.stop()
+            except:
+                pass
 
         # if self.record_video:
         #     self.camera.add_video_output()
@@ -92,4 +76,3 @@ class StreamProcessor(DataProcessor):
         #             im.show(self.processor.apply_stream_transforms(image))
         #     except (ImageReadException, ArducamException) as e:
         #         self.logger.warning("Bad image read: {}".format(e))
-

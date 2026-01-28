@@ -7,7 +7,7 @@ __pycache__/
 # The directory name depends on your setup, common names are venv/ or .venv/
 venv/
 .venv/
-
+.env
 
 # IDE/editor-specific files and directories (choose what you use)
 .idea/

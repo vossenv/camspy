@@ -5,6 +5,7 @@ from os.path import join
 
 import click
 from click_default_group import DefaultGroup
+from dotenv import load_dotenv
 
 from camspy.config import load_config, ConfigValidationError
 from camspy.process import StreamProcessor
@@ -37,6 +38,7 @@ def init_config(params, config_filename):
         cfg = load_config(config_filename)
         init_logger(cfg['logging'])
         log_meta(params, cfg)
+        load_dotenv(cfg['env_path'])
         return cfg
     except ConfigValidationError as e:
         logger = init_logger({})
@@ -58,12 +60,14 @@ def run(ctx, config_filename):
     # cfg = init_config(ctx.params, config_filename)
     # ImageProcessor(cfg).run()
 
+
 @cli.command(help="Serve @ port 8000")
 @click.pass_context
 @click.option('-c', '--config-filename', default='config.yaml', type=str)
 def stream(ctx, config_filename):
     cfg = init_config(ctx.params, config_filename)
     StreamProcessor(cfg).run()
+
 
 if __name__ == "__main__":
     cli()
