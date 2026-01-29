@@ -5,16 +5,17 @@
 import io
 import logging
 import socketserver
+import urllib.parse
 from http import server
 
 PAGE = """\
 <html>
 <head>
-<title>picamera2 MJPEG streaming demo</title>
+<title>Streaming {0}</title>
 </head>
 <body>
-<h1>Picamera2 MJPEG Streaming Demo</h1>
-<img src="stream.mjpg" width="640" height="480" />
+<h1>Streaming {0}</h1>
+<img src="stream" width="{1}" height="{2}" />
 </body>
 </html>
 """
@@ -33,21 +34,30 @@ class StreamingOutput(io.BufferedIOBase):
 
 
 class StreamingHandler(server.BaseHTTPRequestHandler):
-
+    cam_name = 'unknown camera'
+    resolution = [640, 480]
     output = None
+
     def do_GET(self):
-        if self.path == '/':
+        parsed_path = urllib.parse.urlsplit(self.path)
+        params = urllib.parse.parse_qs(parsed_path.query)
+        path = parsed_path.path
+        if path == '/':
             self.send_response(301)
-            self.send_header('Location', '/index.html')
+            self.send_header('Location', '/index')
             self.end_headers()
-        elif self.path == '/index.html':
-            content = PAGE.encode('utf-8')
+        elif path == '/index':
+            width, height = self.resolution
+            scale = params.get('scale')
+            scale = float(scale[0]) if scale else 1.0
+            page_content = PAGE.format(self.cam_name, scale*width, scale*height)
+            content = page_content.encode('utf-8')
             self.send_response(200)
             self.send_header('Content-Type', 'text/html')
             self.send_header('Content-Length', len(content))
             self.end_headers()
             self.wfile.write(content)
-        elif self.path == '/stream.mjpg':
+        elif path == '/stream':
             self.send_response(200)
             self.send_header('Age', 0)
             self.send_header('Cache-Control', 'no-cache, private')

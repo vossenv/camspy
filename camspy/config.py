@@ -1,4 +1,3 @@
-import os
 from collections.abc import Mapping
 from copy import deepcopy
 from pathlib import Path
@@ -22,6 +21,7 @@ def config_schema() -> Schema:
             'camera': Or('picam', 'arducam', 'usb', 'picam-direct'),
             'device_id': int,
             'frame_size': [int, int],
+            'framerate': int,
             'init_delay': Or(float, int),
             'init_retry': Or(float, int),
             'arducam_registers': Or(None, And(str, len)),
@@ -43,12 +43,13 @@ def config_schema() -> Schema:
             'password': And(str, len),
             'remote_dir': And(str, len),
         },
+        Optional('mjpeg'): {
+            'port': int,
+        },
         Optional('recording'): {
             'output_directory': Or(None, And(str, len)),
             'max_video_file_size': Or(float, int),
-            'resolution': [int, int],
             'bitrate': int,
-            'framerate': int,
             'data_bar': [Or(float, int), int],
             'show_fps': Or(None, bool),
         },
@@ -67,7 +68,6 @@ def config_schema() -> Schema:
             'ignore_warnings': Or(None, bool),
         }
     })
-
 
 
 def load_config(path):

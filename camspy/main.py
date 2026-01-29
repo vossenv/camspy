@@ -56,15 +56,6 @@ def cli(ctx):
 @click.pass_context
 @click.option('-c', '--config-filename', default='config.yaml', type=str)
 def run(ctx, config_filename):
-    print("CAMSPY")
-    # cfg = init_config(ctx.params, config_filename)
-    # ImageProcessor(cfg).run()
-
-
-@cli.command(help="Serve @ port 8000")
-@click.pass_context
-@click.option('-c', '--config-filename', default='config.yaml', type=str)
-def stream(ctx, config_filename):
     cfg = init_config(ctx.params, config_filename)
     StreamProcessor(cfg).run()
 

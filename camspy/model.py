@@ -1,5 +1,4 @@
 import glob
-import io
 import logging
 import os
 import shutil
@@ -12,66 +11,8 @@ from pathlib import Path
 import cv2
 import imutils
 import paramiko
-import requests
 
 from camspy.utils import MultiCounter, ddrate, get_abs
-
-
-class ImageManip:
-
-    @staticmethod
-    def show(image):
-        cv2.imshow("stream", image)
-        cv2.waitKey(5)
-
-    @staticmethod
-    def add_label(image, text, text_height, scale=1, color=(255, 255, 255), pad=10):
-        y = image.shape[0] - pad
-
-        for l in reversed(text):
-            cv2.putText(image, l, (pad, y),
-                        cv2.FONT_HERSHEY_DUPLEX, scale, color, 1, cv2.LINE_AA)
-            y = y - (text_height + pad)
-        return image
-
-    @staticmethod
-    def rotate(image, angle, resize=True):
-        if angle == 0:
-            return image
-        if not resize or angle % 180 == 0:
-            return imutils.rotate_bound(image, angle)
-        h, w, _ = image.shape
-        return ImageManip.resize(imutils.rotate_bound(image, angle), [w, h])
-
-    @staticmethod
-    def resize(image, dims):
-        if not dims:
-            return image
-        if min(dims) <= 0:
-            raise ValueError("Dimensions must be positive")
-        return cv2.resize(image, (dims[0], dims[1]))
-
-    @staticmethod
-    def rectangle(image, dims, color=(0, 0, 0)):
-        h, w, _ = image.shape
-        cv2.rectangle(image, (0, h), (dims[0], h - dims[1]), color, -1)
-        return image
-
-    @staticmethod
-    def crop(image, dims):
-        if set(dims) == {0}:
-            return image
-
-        h, w, _ = image.shape
-        top = round(dims[0] * 0.01 * h)
-        left = round(dims[1] * 0.01 * w)
-        bottom = round(dims[2] * 0.01 * h)
-        right = round(dims[3] * 0.01 * w)
-
-        if (w - left - right) <= 0 or (h - top - bottom) <= 0 or min(dims) < 0:
-            raise ValueError("Crop dimensions exceed area or are negative")
-
-        return image[top:h - bottom, left:w - right, :]
 
 
 class VideoFileHandler:
@@ -81,6 +22,8 @@ class VideoFileHandler:
         self.file_count = 0
         self.data_rate = MultiCounter(5)
         self.sizes = deque(maxlen=7)
+        self.times = deque(maxlen=7)
+        self.current_sizes = deque(maxlen=7)
         self.logger = logging.getLogger("video_file_output")
         self.log_metrics = log_metrics
         self.video_identifier = name
@@ -123,11 +66,17 @@ class VideoFileHandler:
     def check_file_size(self):
         try:
             self.current_file_size = round(os.stat(self.output_filename).st_size * 1e-6, 2)
+            self.current_sizes.append(self.current_file_size)
+            self.times.append(time.perf_counter())
+            size_delta = self.current_sizes[-1] - self.current_sizes[0]
+            time_delta = self.times[-1] - self.times[0]
+            rate = size_delta / time_delta if len(self.times) > 1 else 0
             self.logger.debug(
-                "Current file progress: {}/{}MB ({}%)".format(
+                "Current file progress: {}/{}MB ({}%) {} - MB/min".format(
                     self.current_file_size,
                     self.max_video_file_size,
                     100 * self.current_file_size / self.max_video_file_size,
+                    round(60*rate,2),
                 ))
             return round(self.current_file_size) >= self.max_video_file_size
         except Exception as e:
@@ -185,37 +134,58 @@ class SFTPConnector:
             sftp.close()
 
 
-class Connector:
+class ImageManip:
 
-    def __init__(self, config):
-        self.logger = logging.getLogger("connector")
-        self.host = config['host']
-        self.name = config['name']
-        self.timeout = config['timeout']
-        self.image_url = "{0}/cameras/{1}/update".format(self.host, self.name)
-        self.video_url = "{0}/store".format(self.host)
+    @staticmethod
+    def show(image):
+        cv2.imshow("stream", image)
+        cv2.waitKey(5)
 
-    def send_image(self, image):
-        try:
-            file = io.BytesIO(cv2.imencode('.jpg', image)[1])
-            self.send_files(url=self.image_url, files=dict(file=file), headers={})
-        except Exception as e:
-            self.logger.error(e)
+    @staticmethod
+    def add_label(image, text, text_height, scale=1, color=(255, 255, 255), pad=10):
+        y = image.shape[0] - pad
 
-    def send_video(self, path):
-        try:
-            filesize = round(os.stat(path).st_size * 1e-6, 2)
-            headers = {'Size': str(filesize)}
-            file = open(path, 'rb')
-            self.logger.debug("Sending video {0} ({1} MB)".format(path, filesize))
-            return self.send_files(url=self.video_url, files=dict(file=file), headers=headers)
-        except Exception as e:
-            self.logger.error(e)
+        for l in reversed(text):
+            cv2.putText(image, l, (pad, y),
+                        cv2.FONT_HERSHEY_DUPLEX, scale, color, 1, cv2.LINE_AA)
+            y = y - (text_height + pad)
+        return image
 
-    def send_files(self, url, files, headers=None, timeout=None):
-        headers = headers or {}
-        timeout = timeout or self.timeout
-        r = requests.post(url=url, files=files, headers=headers, timeout=timeout)
-        if r.status_code != 200:
-            self.logger.error(r.content)
-        return True
+    @staticmethod
+    def rotate(image, angle, resize=True):
+        if angle == 0:
+            return image
+        if not resize or angle % 180 == 0:
+            return imutils.rotate_bound(image, angle)
+        h, w, _ = image.shape
+        return ImageManip.resize(imutils.rotate_bound(image, angle), [w, h])
+
+    @staticmethod
+    def resize(image, dims):
+        if not dims:
+            return image
+        if min(dims) <= 0:
+            raise ValueError("Dimensions must be positive")
+        return cv2.resize(image, (dims[0], dims[1]))
+
+    @staticmethod
+    def rectangle(image, dims, color=(0, 0, 0)):
+        h, w, _ = image.shape
+        cv2.rectangle(image, (0, h), (dims[0], h - dims[1]), color, -1)
+        return image
+
+    @staticmethod
+    def crop(image, dims):
+        if set(dims) == {0}:
+            return image
+
+        h, w, _ = image.shape
+        top = round(dims[0] * 0.01 * h)
+        left = round(dims[1] * 0.01 * w)
+        bottom = round(dims[2] * 0.01 * h)
+        right = round(dims[3] * 0.01 * w)
+
+        if (w - left - right) <= 0 or (h - top - bottom) <= 0 or min(dims) < 0:
+            raise ValueError("Crop dimensions exceed area or are negative")
+
+        return image[top:h - bottom, left:w - right, :]

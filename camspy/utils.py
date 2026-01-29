@@ -7,6 +7,7 @@ import time
 from collections import deque
 from datetime import datetime
 from pathlib import Path
+
 import distro
 import yaml
 
@@ -26,8 +27,10 @@ def ddrate(hz, measuerments):
 def is_windows():
     return platform.system().lower() == "windows"
 
+
 def get_abs(path: Path) -> Path:
     return path.expanduser().absolute()
+
 
 def get_environment():
     env_os = platform.system()
@@ -105,7 +108,7 @@ def start_thread(process_handle, **kwargs):
     threading.Thread(target=process_handle, args=kwargs.values()).start()
 
 
-class MultiCounter():
+class MultiCounter:
     def __init__(self, size=100):
         self.times = deque(maxlen=size)
         self.count = -1

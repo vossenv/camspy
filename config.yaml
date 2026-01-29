@@ -4,7 +4,8 @@ device:
   arducam_registers:    # leave blank for defaults - AR0134_960p_Color.json
   camera: picam
   device_id: 0
-  frame_size: [300, 300]
+  frame_size: [1280, 960]
+  framerate: 25
   init_delay: 1
   init_retry: 10
   max_error_rate: 5       # arducam only
@@ -22,6 +23,8 @@ sftp:
   username: SF_USER
   password: SF_PASS
   remote_dir: SF_REMOTE_DIR
+mjpeg:
+  port: 8000
 logging:
   filename: cam.log
   level: debug
@@ -32,10 +35,8 @@ logging:
   log_dir: logs
 recording:
   output_directory: video
-  resolution: [640, 480]
-  max_video_file_size: 5                # megabytes
+  max_video_file_size: 100                # megabytes
   bitrate: 6000 #kB/sec
-  framerate: 30 # not works...
   data_bar: [0.8, 10]    # scale, padding
   show_fps: true
 processing:
