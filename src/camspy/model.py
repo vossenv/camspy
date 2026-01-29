@@ -76,7 +76,7 @@ class VideoFileHandler:
                     self.current_file_size,
                     self.max_video_file_size,
                     100 * self.current_file_size / self.max_video_file_size,
-                    round(60*rate,2),
+                    round(60 * rate, 2),
                 ))
             return round(self.current_file_size) >= self.max_video_file_size
         except Exception as e:

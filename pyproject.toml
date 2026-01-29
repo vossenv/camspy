@@ -1,9 +1,11 @@
 [project]
 name = "camspy"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.0.1"
+description = "Camspy"
 readme = "README.md"
 requires-python = ">=3.13"
+license = "MIT"
+license-files = ["LICENSE*"]
 dependencies = [
     "click>=8.3.1",
     "click-default-group>=1.2.4",
@@ -11,7 +13,7 @@ dependencies = [
     "imutils>=0.5.4",
     "numpy>=2.4.1",
     "opencv-python>=4.11.0.86",
-    "picamera2>=0.3.33",
+    "picamera2>=0.3.33; sys_platform == 'linux'",
     "pyyaml>=6.0.3",
     "requests>=2.32.5",
     "schema>=0.7.8",
@@ -19,3 +21,21 @@ dependencies = [
     "paramiko>=4.0.0",
     "python-dotenv>=1.2.1"
 ]
+classifiers = [
+    'Programming Language :: Python :: 3.13',
+    'License :: OSI Approved :: MIT License',
+    'Intended Audience :: Developers',
+]
+[project.urls]
+Homepage = "https://github.com/vossenv/camspy"
+Issues = "https://github.com/vossenv/camspy/issues"
+
+[build-system]
+requires = [
+    "uv_build >= 0.9.26, <0.10.0"
+]
+build-backend = "uv_build"
+
+[project.scripts]
+camspy = "camspy.app:run"
+

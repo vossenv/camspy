@@ -50,6 +50,7 @@ class PiCamException(BaseException):
         self.message = "{0}.  Root error is code {1}: '{2}'".format(message, code, self.root_cause)
         self.args = (self.message, root_exception)
 
+
 class ArducamException(BaseException):
 
     def __init__(self, message, code=None):

@@ -50,7 +50,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             width, height = self.resolution
             scale = params.get('scale')
             scale = float(scale[0]) if scale else 1.0
-            page_content = PAGE.format(self.cam_name, scale*width, scale*height)
+            page_content = PAGE.format(self.cam_name, scale * width, scale * height)
             content = page_content.encode('utf-8')
             self.send_response(200)
             self.send_header('Content-Type', 'text/html')
