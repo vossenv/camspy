@@ -142,8 +142,9 @@ class PiCam(Camera):
             while True:
                 time.sleep(5)
                 if self.video_output.should_start_new_file():
-                    new_filename = self.video_output.start_new_file()
+                    new_filename = self.video_output.get_filename()
                     self.video_splitter.split_output(PyavOutput(new_filename), wait_for_keyframe=True)
+                    self.video_output.start_new_file(new_filename)
         except Exception as e:
             self.logger.warning("Recording failed: {}".format(e))
         finally:

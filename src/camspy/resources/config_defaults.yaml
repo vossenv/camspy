@@ -1,4 +1,4 @@
-env_path: '~/.camspy_env'
+env_path: '~/camspy/.camspy_env'
 device:
   name: 'test_cam'
   arducam_registers:    # leave blank for defaults - AR0134_960p_Color.json

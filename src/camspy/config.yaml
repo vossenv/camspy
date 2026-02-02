@@ -1,4 +1,4 @@
-env_path: '~/camspy/.camspy_env'
+env_path: '~/.camspy_env'
 device:
   name: 'test_cam'
   arducam_registers:    # leave blank for defaults - AR0134_960p_Color.json
@@ -35,12 +35,12 @@ logging:
   log_dir: logs
 recording:
   output_directory: video
-  max_video_file_size: 10                # megabytes
+  max_video_file_size: 100                # megabytes
   bitrate: 6000 #kB/sec
   data_bar: [ 0.8, 10 ]    # scale, padding
   show_fps: true
 processing:
-  record_video: false
+  record_video: true
   mjpeg_stream: true
   send_video: true
 

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+[Unit]
+Description=Camspy Service
+[Service]
+User=carag
+WorkingDirectory={launch_dir}
+ExecStartPre=/bin/sleep 15
+ExecStart=/bin/bash {launch_dir}/camspy_startup.sh
+SuccessExitStatus=143
+TimeoutStopSec=10
+[Install]
+WantedBy=multi-user.target

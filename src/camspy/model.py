@@ -53,10 +53,10 @@ class VideoFileHandler:
             self.logger.debug('Deleting {}'.format(file_path))
             os.remove(file_path)
 
-    def start_new_file(self):
+    def start_new_file(self, filename=None):
         self.move_to_finished()
         self.file_count += 1
-        self.output_filename = self.get_filename()
+        self.output_filename = filename if filename else self.get_filename()
         return self.output_filename
 
     def get_filename(self, extension='mp4'):
@@ -117,8 +117,19 @@ class SFTPConnector:
         self.remote_dir = os.getenv('SF_REMOTE_DIR')
         self.ssh_client = paramiko.SSHClient()
         self.ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.ssh_client.connect(hostname=self.hostname, port=self.port, username=self.username, password=self.password)
-        pass
+        count = 0
+        while True:
+            try:
+                self.ssh_client.connect(hostname=self.hostname, port=self.port, username=self.username, password=self.password)
+                break
+            except OSError as e:
+                if count > 10:
+                    raise e
+                self.logger.error(e)
+                self.logger.info('Retrying connection...')
+                time.sleep(5)
+                count += 1
+
 
     def send_file(self, file_to_send):
         filename = Path(file_to_send).name

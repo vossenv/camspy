@@ -38,4 +38,9 @@ build-backend = "uv_build"
 
 [project.scripts]
 camspy = "camspy.app:run"
+camspy_install = "camspy.app:install"
 
+#[tool.uv.build-backend]
+## Assuming the module is under src/
+#module-root = "src"
+#module-name = "camspy"
