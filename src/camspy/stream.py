@@ -4,6 +4,7 @@
 
 import io
 import logging
+import os
 import socketserver
 import urllib.parse
 from http import server
@@ -37,6 +38,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
     cam_name = 'unknown camera'
     resolution = [640, 480]
     output = None
+    stream_key = None
 
     def do_GET(self):
         parsed_path = urllib.parse.urlsplit(self.path)
@@ -47,6 +49,11 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self.send_header('Location', '/index')
             self.end_headers()
         elif path == '/index':
+            if self.stream_key is not None:
+                sk = params.get('sk')
+                if sk is None or sk[0] != self.stream_key:
+                    logging.warning('Invalid stream key used: %s', sk)
+                    self.send_error(404)
             width, height = self.resolution
             scale = params.get('scale')
             scale = float(scale[0]) if scale else 1.0

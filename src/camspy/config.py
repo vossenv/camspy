@@ -45,6 +45,7 @@ def config_schema() -> Schema:
         },
         Optional('mjpeg'): {
             'port': int,
+            'stream_key': Or(None, And(str, len)),
         },
         Optional('recording'): {
             'output_directory': Or(None, And(str, len)),

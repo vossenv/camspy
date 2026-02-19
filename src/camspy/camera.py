@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 
 import libcamera
@@ -156,10 +157,12 @@ class PiCam(Camera):
 
     def serve_mjpeg(self, output):
         address = ('', self.mjpeg_config['port'])
+        stream_key = os.getenv(self.mjpeg_config.get('stream_key'))
         self.logger.info('Webstream started at http://{}:{}'.format(get_ip(), address[1]))
         StreamingHandler.output = output
         StreamingHandler.cam_name = self.name
         StreamingHandler.resolution = self.frame_size
+        StreamingHandler.stream_key = stream_key
         server = StreamingServer(address, StreamingHandler)
         server.serve_forever()
 

@@ -25,6 +25,7 @@ sftp:
   remote_dir: SF_REMOTE_DIR
 mjpeg:
   port: 8000
+  stream_key: STREAM_KEY
 logging:
   filename: cam.log
   level: debug
